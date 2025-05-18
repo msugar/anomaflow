@@ -4,6 +4,9 @@ This project implements an Anomaly Detection pipeline using Apache Beam on Googl
 
 [Apache Beam](https://beam.apache.org/) is a unified programming model for both batch and streaming data processing. In this project, it will be used for real-time anomaly detection on streaming data using Google Cloud Dataflow as the runner.
 
+![alt text](images/mermaid-flow-1x.png)
+
+
 ## Prerequisites
 
 1. [Terraform](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli)
@@ -13,6 +16,8 @@ This project implements an Anomaly Detection pipeline using Apache Beam on Googl
 1. [Google Cloud project](https://cloud.google.com/docs/get-started)
 
 1. [Google Cloud CLI (`gcloud`)](https://cloud.google.com/sdk/docs/install)
+
+1. [uv](https://docs.astral.sh/uv/getting-started/installation/) for Python package and project management.
 
 ## Setup
 
