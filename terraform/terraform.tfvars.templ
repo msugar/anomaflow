@@ -1,0 +1,15 @@
+# Copy this to terraform.tfvars and set the actual values
+
+project_id = "your-gcp-project-id"
+project_number = "your-gcp-project-number"
+tf_state_bucket_name = "your-unique-tf-state-bucket-name"
+region = "us-central1"
+zone = "us-central1-b"
+environment = "dev"
+data_retention_days = 30
+deploy_dataflow_job = false  # Set to true to deploy the job directly from Terraform
+machine_type = "n1-standard-2"
+max_workers = 5
+min_workers = 1
+worker_disk_type = "pd-standard"
+worker_disk_size_gb = 50

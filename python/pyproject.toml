@@ -1,0 +1,18 @@
+[project]
+authors = [
+  {name = "Marcio Sugar"},
+]
+name = "anomaflow"
+version = "0.1.0"
+description = "A cool project"
+readme = "README.md"
+requires-python = "~=3.12"
+dependencies = [
+    "apache-beam[gcp]==2.64",
+]
+
+[tool.uv]
+# This is where uv-specific config would go if needed
+
+[tool.pytest.ini_options]
+#pythonpath = ["src"]  # Makes sure pytest finds the modules under src

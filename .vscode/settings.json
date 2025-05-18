@@ -1,0 +1,6 @@
+// .vscode/settings.json
+{
+  "python.defaultInterpreterPath": "python/.venv/bin/python",  // macOS/Linux/WSL
+  // "python.defaultInterpreterPath": "python\\.venv\\Scripts\\python.exe", // Windows
+  "python.terminal.activateEnvironment": true
+}
