@@ -67,7 +67,7 @@ load-terraform-outputs:
 	$(eval ZONE := $(shell echo '$(TF_OUTPUTS)' | jq -r '.zone.value'))
 	$(eval TELEMETRY_BUCKET := $(shell echo '$(TF_OUTPUTS)' | jq -r '.telemetry_bucket_name.value'))
 	$(eval TEMP_BUCKET := $(shell echo '$(TF_OUTPUTS)' | jq -r '.dataflow_temp_bucket.value'))
-	$(eval GCS_INPUT_PATH := gs://$(TELEMETRY_BUCKET)/input/)
+	$(eval GCS_INPUT_PATH := gs://$(TELEMETRY_BUCKET)/input)
 	$(eval GCS_OUTPUT_PATH := gs://$(TELEMETRY_BUCKET)/output)
 	$(eval GCS_TEMP_PATH := gs://$(TEMP_BUCKET))
 
