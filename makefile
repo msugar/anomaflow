@@ -51,11 +51,11 @@ local: cleanup
 		--output_path="$(LOCAL_OUTPUT_PATH)/" \
 		--window_size=$(WINDOW_SIZE)
 
-remote: cleanup
+remote:
 	python3 $(MAIN_SCRIPT) \
 		--runner=DirectRunner \
-		--input_path=gs://decoded-badge-459922-v4-telemetry/input/year=2025/month=05/day=18/hour=05/minute=*/*.json \
-		--output_path="$(LOCAL_OUTPUT_PATH)/" \
+		--input_path=gs://decoded-badge-459922-v4-telemetry/input/year=2025/month=05/day=18/hour=04/minute=*/*.json \
+		--output_path=gs://decoded-badge-459922-v4-telemetry/output/ \
 		--window_size=$(WINDOW_SIZE)		
 
 # Sets variables by reading Terraform outputs and exporting them to Make
