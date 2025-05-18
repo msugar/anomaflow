@@ -51,11 +51,11 @@ local: cleanup
 		--output_path="$(LOCAL_OUTPUT_PATH)/" \
 		--window_size=$(WINDOW_SIZE)
 
-remote:
+remote: load-terraform-outputs
 	python3 $(MAIN_SCRIPT) \
 		--runner=DirectRunner \
-		--input_path=gs://decoded-badge-459922-v4-telemetry/input/year=2025/month=05/day=18/hour=04/minute=*/*.json \
-		--output_path=gs://decoded-badge-459922-v4-telemetry/output/ \
+		--input_path="$(GCS_INPUT_PATH)/year=2025/month=05/day=18/hour=04/minute=*/*.json" \
+		--output_path="$(GCS_OUTPUT_PATH)/" \
 		--window_size=$(WINDOW_SIZE)		
 
 # Sets variables by reading Terraform outputs and exporting them to Make
@@ -67,7 +67,7 @@ load-terraform-outputs:
 	$(eval ZONE := $(shell echo '$(TF_OUTPUTS)' | jq -r '.zone.value'))
 	$(eval TELEMETRY_BUCKET := $(shell echo '$(TF_OUTPUTS)' | jq -r '.telemetry_bucket_name.value'))
 	$(eval TEMP_BUCKET := $(shell echo '$(TF_OUTPUTS)' | jq -r '.dataflow_temp_bucket.value'))
-	$(eval GCS_INPUT_PATH := gs://$(TELEMETRY_BUCKET)/input/year=2025/month=05/day=18/hour=*/minute=*/*.json)
+	$(eval GCS_INPUT_PATH := gs://$(TELEMETRY_BUCKET)/input/)
 	$(eval GCS_OUTPUT_PATH := gs://$(TELEMETRY_BUCKET)/output)
 	$(eval GCS_TEMP_PATH := gs://$(TEMP_BUCKET))
 
@@ -78,7 +78,7 @@ dataflow: load-terraform-outputs
 		--region="$(REGION)" \
 		--temp_location="$(GCS_TEMP_PATH)/temp/" \
 		--staging_location="$(GCS_TEMP_PATH)/staging/" \
-		--input_path=gs://decoded-badge-459922-v4-telemetry/input/year=2025/month=05/day=18/hour=05/minute=00/metrics_297011756.json \
+		--input_path="$(GCS_INPUT_PATH)/year=2025/month=05/day=18/hour=*/minute=*/*.json" \
 		--output_path="$(GCS_OUTPUT_PATH)/" \
 		--window_size=$(WINDOW_SIZE) \
 		--max_num_workers=4 \
@@ -91,7 +91,7 @@ dataflow-stream: load-terraform-outputs
 		--region="$(REGION)" \
 		--temp_location="$(GCS_TEMP_PATH)/temp/" \
 		--staging_location="$(GCS_TEMP_PATH)/staging/" \
-		--input_path="$(GCS_INPUT_PATH)" \
+		--input_path="$(GCS_INPUT_PATH)/year=2025/month=05/day=18/hour=*/minute=*/*.json" \
 		--output_path="$(GCS_OUTPUT_PATH)/" \
 		--window_size=$(WINDOW_SIZE) \
 		--streaming \
