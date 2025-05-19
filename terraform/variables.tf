@@ -76,3 +76,8 @@ variable "worker_disk_size_gb" {
   type        = number
   default     = 50
 }
+
+variable "admin_user_member" {
+  description = "The IAM member (e.g., user:email@example.com) to grant Dataflow Admin role for job submission"
+  type        = string
+}
