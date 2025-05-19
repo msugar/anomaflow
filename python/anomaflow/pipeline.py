@@ -175,7 +175,7 @@ class DetectMetricAnomalies(beam.DoFn):
 def run(argv=None):
     pipeline_options = PipelineOptions(argv)
     telemetry_options = pipeline_options.view_as(TelemetryOptions)
-    pipeline_options.view_as(StandardOptions).streaming = True
+    #pipeline_options.view_as(StandardOptions).streaming = True
     
     with beam.Pipeline(options=pipeline_options) as p:
         # Read from GCS
