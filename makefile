@@ -3,13 +3,15 @@
 # Paths
 PYTHON_DIR := python
 MAIN_SCRIPT := $(PYTHON_DIR)/anomaflow/pipeline.py
+TEST_SCRIPT := $(PYTHON_DIR)/anomaflow/test_pipeline.py
 
 # Local paths
 LOCAL_INPUT_PATH := data/input
 LOCAL_OUTPUT_PATH := data/output
 
 # Beam config
-WINDOW_SIZE := 600 # Default window size in seconds
+# Default window size in seconds
+WINDOW_SIZE := 600
 
 # Terraform paths
 TERRAFORM_DIR := terraform
@@ -23,11 +25,11 @@ REGION :=
 ZONE :=
 TELEMETRY_BUCKET :=
 TEMP_BUCKET :=
-GCS_INPUT_PATH :=
-GCS_OUTPUT_PATH :=
-GCS_TEMP_PATH :=
+GCS_BUCKET_INPUT :=
+GCS_BUCKET_OUTPUT :=
+GCS_BUCKET_TEMP :=
 
-.PHONY: help local dataflow load-terraform-outputs cleanup iap-tunnel tf-bootstrap tf-init remote dataflow-stream
+.PHONY: help local dataflow load-terraform-outputs cleanup iap-tunnel tf-bootstrap tf-init remote dataflow-stream dataflow-test
 
 help:
 	@echo "Usage:"
@@ -54,9 +56,9 @@ local: cleanup
 remote: load-terraform-outputs
 	python3 $(MAIN_SCRIPT) \
 		--runner=DirectRunner \
-		--input_path="$(GCS_INPUT_PATH)/year=2025/month=05/day=18/hour=04/minute=*/*.json" \
-		--output_path="$(GCS_OUTPUT_PATH)/" \
-		--window_size=$(WINDOW_SIZE)		
+		--input_path="$(GCS_BUCKET_INPUT)/input/year=2025/month=05/day=18/hour=04/minute=*/*.json" \
+		--output_path="$(GCS_BUCKET_OUTPUT)/output/" \
+		--window_size=$(WINDOW_SIZE)
 
 # Sets variables by reading Terraform outputs and exporting them to Make
 load-terraform-outputs:
@@ -67,19 +69,25 @@ load-terraform-outputs:
 	$(eval ZONE := $(shell echo '$(TF_OUTPUTS)' | jq -r '.zone.value'))
 	$(eval TELEMETRY_BUCKET := $(shell echo '$(TF_OUTPUTS)' | jq -r '.telemetry_bucket_name.value'))
 	$(eval TEMP_BUCKET := $(shell echo '$(TF_OUTPUTS)' | jq -r '.dataflow_temp_bucket.value'))
-	$(eval GCS_INPUT_PATH := gs://$(TELEMETRY_BUCKET)/input)
-	$(eval GCS_OUTPUT_PATH := gs://$(TELEMETRY_BUCKET)/output)
-	$(eval GCS_TEMP_PATH := gs://$(TEMP_BUCKET))
+	$(eval GCS_BUCKET_INPUT := gs://$(TELEMETRY_BUCKET))
+	$(eval GCS_BUCKET_OUTPUT := gs://$(TELEMETRY_BUCKET))
+	$(eval GCS_BUCKET_TEMP := gs://$(TEMP_BUCKET))
+	$(eval DATAFLOW_NETWORK := $(shell echo '$(TF_OUTPUTS)' | jq -r '.dataflow_network.value'))
+	$(eval DATAFLOW_SUBNET := $(shell echo '$(TF_OUTPUTS)' | jq -r '.dataflow_subnet.value'))
+	$(eval DATAFLOW_SERVICE_ACCOUNT_EMAIL := $(shell echo '$(TF_OUTPUTS)' | jq -r '.dataflow_service_account_email.value'))
 
 dataflow: load-terraform-outputs
 	python3 $(MAIN_SCRIPT) \
 		--runner=DataflowRunner \
 		--project="$(PROJECT_ID)" \
 		--region="$(REGION)" \
-		--temp_location="$(GCS_TEMP_PATH)/temp/" \
-		--staging_location="$(GCS_TEMP_PATH)/staging/" \
-		--input_path="$(GCS_INPUT_PATH)/year=2025/month=05/day=18/hour=*/minute=*/*.json" \
-		--output_path="$(GCS_OUTPUT_PATH)/" \
+		--network="$(DATAFLOW_NETWORK)" \
+		--subnetwork="regions/$(REGION)/subnetworks/$(DATAFLOW_SUBNET)" \
+		--service_account_email="$(DATAFLOW_SERVICE_ACCOUNT_EMAIL)" \
+		--temp_location="$(GCS_BUCKET_TEMP)/temp/" \
+		--staging_location="$(GCS_BUCKET_TEMP)/staging/" \
+		--input_path="$(GCS_BUCKET_INPUT)/input/year=2025/month=05/day=18/hour=*/minute=*/*.json" \
+		--output_path="$(GCS_BUCKET_OUTPUT)/output/" \
 		--window_size=$(WINDOW_SIZE) \
 		--max_num_workers=4 \
 		--num_workers=1
@@ -89,12 +97,26 @@ dataflow-stream: load-terraform-outputs
 		--runner=DataflowRunner \
 		--project="$(PROJECT_ID)" \
 		--region="$(REGION)" \
-		--temp_location="$(GCS_TEMP_PATH)/temp/" \
-		--staging_location="$(GCS_TEMP_PATH)/staging/" \
-		--input_path="$(GCS_INPUT_PATH)/year=2025/month=05/day=18/hour=*/minute=*/*.json" \
-		--output_path="$(GCS_OUTPUT_PATH)/" \
+		--temp_location="$(GCS_BUCKET_TEMP)/temp/" \
+		--staging_location="$(GCS_BUCKET_TEMP)/staging/" \
+		--input_path="$(GCS_BUCKET_INPUT)/input/year=2025/month=05/day=18/hour=*/minute=*/*.json" \
+		--output_path="$(GCS_BUCKET_OUTPUT)/output/" \
 		--window_size=$(WINDOW_SIZE) \
 		--streaming \
+		--max_num_workers=4 \
+		--num_workers=1
+
+dataflow-test: load-terraform-outputs
+	python3 $(TEST_SCRIPT) \
+		--runner=DataflowRunner \
+		--project="$(PROJECT_ID)" \
+		--region="$(REGION)" \
+		--network="$(DATAFLOW_NETWORK)" \
+		--subnetwork="regions/$(REGION)/subnetworks/$(DATAFLOW_SUBNET)" \
+		--service_account_email="$(DATAFLOW_SERVICE_ACCOUNT_EMAIL)" \
+		--temp_location="$(GCS_BUCKET_TEMP)/temp/" \
+		--staging_location="$(GCS_BUCKET_TEMP)/staging/" \
+		--output="$(GCS_BUCKET_OUTPUT)/test-output" \
 		--max_num_workers=4 \
 		--num_workers=1
 
