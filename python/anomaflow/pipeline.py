@@ -31,6 +31,7 @@ class ParseTelemetryData(beam.DoFn):
             return None
 
     def process(self, readable_file):
+        file_path = getattr(readable_file.metadata, "path", "unknown")
         try:
             with readable_file.open() as f:
                 for line in f:
@@ -80,12 +81,12 @@ class ParseTelemetryData(beam.DoFn):
                                             }
 
                     except json.JSONDecodeError:
-                        logging.warning(f"Could not parse line as JSON: {line[:100]}...")
+                        logging.warning(f"Could not parse line as JSON in {file_path}: {line[:100]}...")
                     except Exception as e:
-                        logging.error(f"Error processing telemetry line: {str(e)}")
+                        logging.error(f"Error processing telemetry line in {file_path}: {str(e)}")
 
         except Exception as file_err:
-            logging.error(f"Error opening file: {str(file_err)}")
+            logging.error(f"Error opening file {file_path}: {str(file_err)}")
 
 
 # Detect anomalies in system metrics with integrated logging
@@ -182,7 +183,7 @@ def run(argv=None):
         files = (
             p 
             | 'Match Files' >> fileio.MatchFiles(telemetry_options.input_path)
-            | 'Read File Metadata' >> fileio.ReadMatches()
+            | 'Read Matches' >> fileio.ReadMatches()
         )
         
         # Parse telemetry data
