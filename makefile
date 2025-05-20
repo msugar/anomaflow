@@ -75,6 +75,7 @@ load-terraform-outputs:
 	$(eval DATAFLOW_NETWORK := $(shell echo '$(TF_OUTPUTS)' | jq -r '.dataflow_network.value'))
 	$(eval DATAFLOW_SUBNET := $(shell echo '$(TF_OUTPUTS)' | jq -r '.dataflow_subnet.value'))
 	$(eval DATAFLOW_SERVICE_ACCOUNT_EMAIL := $(shell echo '$(TF_OUTPUTS)' | jq -r '.dataflow_service_account_email.value'))
+	$(eval WORKER_ZONE_FLAG := --worker_zone="$(if $(ZONE_SUFFIX),$(REGION)-$(ZONE_SUFFIX),$(ZONE))")
 
 dataflow: load-terraform-outputs
 	python3 $(MAIN_SCRIPT) \
@@ -89,8 +90,9 @@ dataflow: load-terraform-outputs
 		--input_path="$(GCS_BUCKET_INPUT)/input/year=2025/month=05/day=18/hour=*/minute=*/*.json" \
 		--output_path="$(GCS_BUCKET_OUTPUT)/output/" \
 		--window_size=$(WINDOW_SIZE) \
-		--max_num_workers=4 \
-		--num_workers=1
+		--max_num_workers=3 \
+		--num_workers=1 \
+		$(WORKER_ZONE_FLAG)
 
 dataflow-stream: load-terraform-outputs
 	python3 $(MAIN_SCRIPT) \
@@ -103,8 +105,9 @@ dataflow-stream: load-terraform-outputs
 		--output_path="$(GCS_BUCKET_OUTPUT)/output/" \
 		--window_size=$(WINDOW_SIZE) \
 		--streaming \
-		--max_num_workers=4 \
-		--num_workers=1
+		--max_num_workers=3 \
+		--num_workers=1 \
+		$(WORKER_ZONE_FLAG)
 
 dataflow-test: load-terraform-outputs
 	python3 $(TEST_SCRIPT) \
@@ -117,8 +120,9 @@ dataflow-test: load-terraform-outputs
 		--temp_location="$(GCS_BUCKET_TEMP)/temp/" \
 		--staging_location="$(GCS_BUCKET_TEMP)/staging/" \
 		--output="$(GCS_BUCKET_OUTPUT)/test-output" \
-		--max_num_workers=4 \
-		--num_workers=1
+		--max_num_workers=3 \
+		--num_workers=1 \
+		$(WORKER_ZONE_FLAG)
 
 
 # Create IAP tunnel to the bindplane-server GCE instance
