@@ -173,7 +173,7 @@ class DetectMetricAnomalies(beam.DoFn):
     
 
 # Main pipeline
-def run(argv=None):
+def run(argv=None):  # pylint: disable=missing-docstring
     pipeline_options = PipelineOptions(argv)
     telemetry_options = pipeline_options.view_as(TelemetryOptions)
     #pipeline_options.view_as(StandardOptions).streaming = True
