@@ -52,7 +52,7 @@ cleanup:
 	@echo "Cleaning up local output directory..."
 	rm -rf $(LOCAL_OUTPUT_PATH)/*
 
-# Run the pipeline locally after cleaning output	
+# Run the pipeline with local input data
 local: cleanup
 	python3 $(MAIN_SCRIPT) \
 		--runner=DirectRunner \
@@ -60,12 +60,11 @@ local: cleanup
 		--output_path="$(LOCAL_OUTPUT_PATH)/" \
 		--window_size=$(WINDOW_SIZE)
 
-# 		--input_path="$(GCS_BUCKET_INPUT)/input/year=2025/month=05/day=18/hour=04/minute=*/*.json" \
-#
+# Run the pipeline with remote input data
 remote: load-terraform-outputs
 	python3 $(MAIN_SCRIPT) \
 		--runner=DirectRunner \
-		--input_path="gs://decoded-badge-459922-v4-telemetry/input/year=2025/month=05/day=18/hour=23/minute=44/metrics_396542527.json" \
+		--input_path="$(GCS_BUCKET_INPUT)/input/year=2025/month=05/day=18/hour=04/minute=*/*.json" \
 		--output_path="$(GCS_BUCKET_OUTPUT)/output/" \
 		--window_size=$(WINDOW_SIZE)
 
@@ -86,8 +85,7 @@ load-terraform-outputs:
 	$(eval DATAFLOW_SERVICE_ACCOUNT_EMAIL := $(shell echo '$(TF_OUTPUTS)' | jq -r '.dataflow_service_account_email.value'))
 	$(eval WORKER_ZONE_FLAG := --worker_zone="$(if $(ZONE_SUFFIX),$(REGION)-$(ZONE_SUFFIX),$(ZONE))")
 
-# 		--input_path="$(GCS_BUCKET_INPUT)/input/year=2025/month=05/day=18/hour=*/minute=*/*.json" \
-#
+
 dataflow: load-terraform-outputs
 	python3 $(MAIN_SCRIPT) \
 		--runner=DataflowRunner \
@@ -98,25 +96,8 @@ dataflow: load-terraform-outputs
 		--service_account_email="$(DATAFLOW_SERVICE_ACCOUNT_EMAIL)" \
 		--temp_location="$(GCS_BUCKET_TEMP)/temp/" \
 		--staging_location="$(GCS_BUCKET_TEMP)/staging/" \
-		--input_path="gs://decoded-badge-459922-v4-telemetry/input/year=2025/month=05/day=18/hour=23/minute=44/metrics_396542527.json" \
-		--output_path="$(GCS_BUCKET_OUTPUT)/output/" \
-		--window_size=$(WINDOW_SIZE) \
-		--max_num_workers=3 \
-		--num_workers=1 \
-		$(WORKER_ZONE_FLAG) --machine_type="e2-medium"
-
-dataflow2: load-terraform-outputs
-	python3 $(MAIN_SCRIPT) \
-		--runner=DataflowRunner \
-		--project="$(PROJECT_ID)" \
-		--region="$(REGION)" \
-		--network="$(DATAFLOW_NETWORK)" \
-		--subnetwork="regions/$(REGION)/subnetworks/$(DATAFLOW_SUBNET)" \
-		--service_account_email="$(DATAFLOW_SERVICE_ACCOUNT_EMAIL)" \
-		--temp_location="$(GCS_BUCKET_TEMP)/temp/" \
-		--staging_location="$(GCS_BUCKET_TEMP)/staging/" \
-		--sdk_container_image="$(IMAGE_URI)" \
-		--input_path="gs://decoded-badge-459922-v4-telemetry/input/year=2025/month=05/day=18/hour=23/minute=44/metrics_396542527.json" \
+		--sdk_container_image="$(IMAGE_URI)" \		
+		--input_path="$(GCS_BUCKET_INPUT)/input/year=2025/month=*/day=*/hour=*/minute=*/*.json" \
 		--output_path="$(GCS_BUCKET_OUTPUT)/output/" \
 		--window_size=$(WINDOW_SIZE) \
 		--max_num_workers=3 \
@@ -218,13 +199,6 @@ tf-init:
 	@echo "   State path: gs://$(TF_STATE_BUCKET_NAME)/main/default.tfstate"
 
 # Build and push Docker image to Artifact Registry
-# Note: This target requires Docker and gcloud to be installed and configured
-#       with the correct permissions to push to the Artifact Registry.
-#       Ensure you have the correct IAM roles assigned to your gcloud account.
-#       For example, roles/artifactregistry.writer or roles/storage.admin.
-#       Also, ensure Docker is authenticated with gcloud.
-#       You can do this by running: gcloud auth configure-docker $(REGION)-docker.pkg.dev
-#       before running this target.
 build-container: load-terraform-outputs
 	@echo "Building Docker image..."
 	docker build -f docker/Dockerfile -t $(IMAGE_URI) .

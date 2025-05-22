@@ -9,9 +9,9 @@ This project implements an Anomaly Detection pipeline using Apache Beam on Googl
 
 ## Prerequisites
 
-1. [Terraform](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli)
+1. [Docker](https://docs.docker.com/engine/install/)
 
-1. Google Gmail account
+1. [Terraform](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli)
 
 1. [Google Cloud project](https://cloud.google.com/docs/get-started)
 
@@ -96,7 +96,7 @@ This project implements an Anomaly Detection pipeline using Apache Beam on Googl
 
 1. Open your Web browser and go to [http://localhost:3001/agents](http://localhost:3001/agents). Log in as admin user (with the username and password set in the `docker-compose.yml` file), then click on "Install Your First Agent". At the end, you should get a command you can copy and run on the Bindplane Collector VM.
 
-1. Back on GCP, ssh into the `bindplane-collector-1` GCE instance (VM)
+1. Back on GCP Console, ssh into the `bindplane-collector-1` GCE instance (VM)
    - To avoid `nf_conntrack` errors showing up in the Collector's logs later on:
       - Load the `nf_conntrack` module:
          ```bash
@@ -114,7 +114,7 @@ This project implements an Anomaly Detection pipeline using Apache Beam on Googl
    - Install the Bindplane Agent using the command you got from your Bindplane OP Server (previous step).
 
 
-1. Back to the Bindplane OP Server Web UI
+1. Using the Bindplane OP Server Web UI
    - Create a new configuration, name it "demo" or whatever you like, and add these components to it:
       - Add a `Host` source, with the "Mute Process Username Errors" option enabled
    
