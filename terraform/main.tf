@@ -18,7 +18,8 @@ resource "google_project_service" "required_services" {
     "pubsub.googleapis.com",
     "storage.googleapis.com",
     "bigquery.googleapis.com",
-    "compute.googleapis.com"
+    "compute.googleapis.com",
+    "artifactregistry.googleapis.com"
   ])
 
   project = var.project_id
