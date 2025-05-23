@@ -1,14 +1,16 @@
-# Use the official Apache Beam Python SDK base image
-FROM apache/beam_python3.12_sdk:2.64.0
+FROM python:3.12-slim
 
-# Copy the pipeline code
-COPY python/ /app/
-WORKDIR /app
+WORKDIR /pipeline
 
-# Install dependencies using pip (you can use uv or pip here)
+# Set the entrypoint to Apache Beam SDK worker launcher.
+COPY --from=apache/beam_python3.12_sdk:2.65.0 /opt/apache/beam /opt/apache/beam
+ENTRYPOINT [ "/opt/apache/beam/boot" ]
+
+# Install the requirements.
+COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir . \
+    && pip install --no-cache-dir -r requirements.txt \
     && pip check
 
-# Set the entrypoint to your pipeline script (optional for interactive testing)
-ENTRYPOINT ["python", "/app/anomaflow/pipeline.py"]
+# Copy the pipeline source files.
+COPY . ./
