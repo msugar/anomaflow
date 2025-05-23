@@ -45,7 +45,13 @@ resource "google_project_iam_member" "admin_user_cloud_build_editor" {
 resource "google_project_iam_member" "admin_user_dataflow_admin" {
   project = var.project_id
   role    = "roles/dataflow.admin"
-  member = var.admin_user_member
+  member  = var.admin_user_member
+}
+
+resource "google_project_iam_member" "dataflow_sa_artifact_registry_reader" {
+  project = var.project_id
+  role    = "roles/artifactregistry.reader"
+  member  = google_service_account.dataflow_service_account.member
 }
 
 resource "google_project_iam_member" "dataflow_sa_dataflow_worker" {
@@ -86,7 +92,6 @@ resource "google_storage_bucket" "telemetry_bucket" {
 
   uniform_bucket_level_access = true
 
-  # Add soft delete prevention configuration
   soft_delete_policy {
     retention_duration_seconds = 0 # Disables soft delete
   }
@@ -112,14 +117,23 @@ resource "google_storage_bucket" "dataflow_temp_bucket" {
 
   uniform_bucket_level_access = true
 
-  # Disable soft delete to prevent the warning
   soft_delete_policy {
     retention_duration_seconds = 0 # Disables soft delete
   }
 
   lifecycle_rule {
     condition {
-      age = 1
+      age = 7
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
+  lifecycle_rule {
+    condition {
+      age            = 3
+      matches_prefix = ["staging/"]
     }
     action {
       type = "Delete"
@@ -357,6 +371,35 @@ resource "google_compute_firewall" "dataflow_internal" {
   target_tags = ["dataflow"]
 
   depends_on = [google_compute_network.dataflow_network]
+}
+
+# Allow outbound to Google APIs and Dataflow service
+resource "google_compute_firewall" "dataflow_egress_google_apis" {
+  name      = "dataflow-egress-google-apis"
+  network   = google_compute_network.dataflow_network.name
+  direction = "EGRESS"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["443", "80"]
+  }
+
+  destination_ranges = ["199.36.153.8/30", "199.36.153.4/30"]
+  target_tags       = ["dataflow"]
+}
+
+# Allow ingress from Google's Dataflow service
+resource "google_compute_firewall" "dataflow_ingress_service" {
+  name    = "dataflow-ingress-service"
+  network = google_compute_network.dataflow_network.name
+
+  allow {
+    protocol = "tcp"
+    ports    = ["12345-12350"]
+  }
+
+  source_ranges = ["199.36.153.8/30", "199.36.153.4/30"]
+  target_tags   = ["dataflow"]
 }
 
 # Optional: Allow SSH for debugging (recommended)
