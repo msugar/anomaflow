@@ -19,7 +19,8 @@ resource "google_project_service" "required_services" {
     "storage.googleapis.com",
     "bigquery.googleapis.com",
     "compute.googleapis.com",
-    "artifactregistry.googleapis.com"
+    "artifactregistry.googleapis.com",
+    "cloudbuild.googleapis.com",
   ])
 
   project = var.project_id
