@@ -6,9 +6,10 @@ name = "anomaflow"
 version = "0.1.0"
 description = "A cool project"
 readme = "README.md"
-requires-python = "~=3.12"
+requires-python = "~=3.12.10"
 dependencies = [
-    "apache-beam[gcp]==2.64",
+    "apache-beam[gcp]==2.65.0",
+    #"pip==25.1.1",
 ]
 
 [tool.uv]
