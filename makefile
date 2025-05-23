@@ -1,4 +1,4 @@
-# Makefile for running Anomaflow Beam pipeline
+# Makefile for installing and running Anomaflow Beam pipeline
 
 # Configuration
 SHELL := /bin/bash
@@ -28,11 +28,13 @@ TEMP_BUCKET :=
 GCS_BUCKET_INPUT :=
 GCS_BUCKET_OUTPUT :=
 GCS_BUCKET_TEMP :=
-DATAFLOW_NETWORK :=
-DATAFLOW_SUBNET :=
-DATAFLOW_SERVICE_ACCOUNT_EMAIL :=
+NETWORK :=
+SUBNET :=
+SERVICE_ACCOUNT_EMAIL :=
 
 # Configuration variables (can be overridden)
+WORKER_MACHINE_TYPE ?= e2-medium
+MAX_WORKERS ?= 4
 WINDOW_SIZE ?= 600
 IMAGE_TAG ?= latest
 ZONE_SUFFIX ?=
@@ -102,9 +104,9 @@ load-terraform-outputs:
 	$(eval GCS_BUCKET_INPUT := gs://$(TELEMETRY_BUCKET))
 	$(eval GCS_BUCKET_OUTPUT := gs://$(TELEMETRY_BUCKET))
 	$(eval GCS_BUCKET_TEMP := gs://$(TEMP_BUCKET))
-	$(eval DATAFLOW_NETWORK := $(shell echo '$(TF_OUTPUTS)' | jq -r '.dataflow_network.value'))
-	$(eval DATAFLOW_SUBNET := $(shell echo '$(TF_OUTPUTS)' | jq -r '.dataflow_subnet.value'))
-	$(eval DATAFLOW_SERVICE_ACCOUNT_EMAIL := $(shell echo '$(TF_OUTPUTS)' | jq -r '.dataflow_service_account_email.value'))
+	$(eval NETWORK := $(shell echo '$(TF_OUTPUTS)' | jq -r '.dataflow_network.value'))
+	$(eval SUBNET := $(shell echo '$(TF_OUTPUTS)' | jq -r '.dataflow_subnet.value'))
+	$(eval SERVICE_ACCOUNT_EMAIL := $(shell echo '$(TF_OUTPUTS)' | jq -r '.dataflow_service_account_email.value'))
 	$(eval WORKER_ZONE_FLAG := --worker_zone="$(if $(ZONE_SUFFIX),$(REGION)-$(ZONE_SUFFIX),$(ZONE))")
 	@echo "Terraform outputs loaded successfully"
 
@@ -133,19 +135,21 @@ dataflow: load-terraform-outputs ## Run pipeline on Google Cloud Dataflow (batch
 		--runner=DataflowRunner \
 		--project="$(PROJECT_ID)" \
 		--region="$(REGION)" \
-		--network="$(DATAFLOW_NETWORK)" \
-		--subnetwork="regions/$(REGION)/subnetworks/$(DATAFLOW_SUBNET)" \
-		--service_account_email="$(DATAFLOW_SERVICE_ACCOUNT_EMAIL)" \
+		--network="$(NETWORK)" \
+		--subnetwork="regions/$(REGION)/subnetworks/$(SUBNET)" \
+		--service_account_email="$(SERVICE_ACCOUNT_EMAIL)" \
 		--temp_location="$(GCS_BUCKET_TEMP)/temp/" \
 		--staging_location="$(GCS_BUCKET_TEMP)/staging/" \
 		--sdk_container_image="$(IMAGE_URI)" \
+		--no_use_public_ips \
+		--network_tags="dataflow" \
 		--input_path="$(GCS_BUCKET_INPUT)/input/year=2025/month=*/day=*/hour=*/minute=*/*.json" \
 		--output_path="$(GCS_BUCKET_OUTPUT)/output/" \
 		--window_size=$(WINDOW_SIZE) \
-		--max_num_workers=3 \
+		--max_num_workers="$(MAX_WORKERS)" \
 		--num_workers=1 \
 		$(WORKER_ZONE_FLAG) \
-		--machine_type="e2-medium"
+		--machine_type="$(WORKER_MACHINE_TYPE)"
 	@echo "Dataflow job submitted"
 
 dataflow-stream: load-terraform-outputs ## Run streaming pipeline on Google Cloud Dataflow
@@ -154,20 +158,21 @@ dataflow-stream: load-terraform-outputs ## Run streaming pipeline on Google Clou
 		--runner=DataflowRunner \
 		--project="$(PROJECT_ID)" \
 		--region="$(REGION)" \
-		--network="$(DATAFLOW_NETWORK)" \
-		--subnetwork="regions/$(REGION)/subnetworks/$(DATAFLOW_SUBNET)" \
-		--service_account_email="$(DATAFLOW_SERVICE_ACCOUNT_EMAIL)" \
+		--network="$(NETWORK)" \
+		--subnetwork="regions/$(REGION)/subnetworks/$(SUBNET)" \
+		--service_account_email="$(SERVICE_ACCOUNT_EMAIL)" \
 		--temp_location="$(GCS_BUCKET_TEMP)/temp/" \
 		--staging_location="$(GCS_BUCKET_TEMP)/staging/" \
 		--sdk_container_image="$(IMAGE_URI)" \
+		--no_use_public_ips \
 		--input_path="$(GCS_BUCKET_INPUT)/input/year=2025/month=05/day=18/hour=*/minute=*/*.json" \
 		--output_path="$(GCS_BUCKET_OUTPUT)/output/" \
 		--window_size=$(WINDOW_SIZE) \
 		--streaming \
-		--max_num_workers=3 \
+		--max_num_workers="$(MAX_WORKERS)" \
 		--num_workers=1 \
 		$(WORKER_ZONE_FLAG) \
-		--machine_type="e2-medium"
+		--machine_type="$(WORKER_MACHINE_TYPE)"
 	@echo "Dataflow streaming job submitted"
 
 dataflow-test: load-terraform-outputs ## Run test pipeline on Google Cloud Dataflow
@@ -176,23 +181,23 @@ dataflow-test: load-terraform-outputs ## Run test pipeline on Google Cloud Dataf
 		--runner=DataflowRunner \
 		--project="$(PROJECT_ID)" \
 		--region="$(REGION)" \
-		--network="$(DATAFLOW_NETWORK)" \
-		--subnetwork="regions/$(REGION)/subnetworks/$(DATAFLOW_SUBNET)" \
-		--service_account_email="$(DATAFLOW_SERVICE_ACCOUNT_EMAIL)" \
+		--network="$(NETWORK)" \
+		--subnetwork="regions/$(REGION)/subnetworks/$(SUBNET)" \
+		--service_account_email="$(SERVICE_ACCOUNT_EMAIL)" \
 		--temp_location="$(GCS_BUCKET_TEMP)/temp/" \
 		--staging_location="$(GCS_BUCKET_TEMP)/staging/" \
-		--sdk_container_image="$(IMAGE_URI)" \
+		--no_use_public_ips \
 		--output="$(GCS_BUCKET_OUTPUT)/test-output" \
-		--max_num_workers=3 \
+		--max_num_workers="$(MAX_WORKERS)" \
 		--num_workers=1 \
 		$(WORKER_ZONE_FLAG) \
-		--machine_type="e2-medium"
+		--machine_type="$(WORKER_MACHINE_TYPE)"
 	@echo "Dataflow test completed"
 
 build-container: check-docker load-terraform-outputs ## Build Docker container image (requires Docker)
 	@echo "Building Docker image: $(IMAGE_URI)"
 	@[ -f "docker/Dockerfile" ] || (echo "Error: Dockerfile not found at docker/Dockerfile" && exit 1)
-	docker build -f docker/Dockerfile -t $(IMAGE_URI) .
+	docker build --no-cache -f docker/Dockerfile -t $(IMAGE_URI) python
 	@echo "Docker image built successfully"
 
 build-container-cloud: load-terraform-outputs ## Build container using Google Cloud Build (no Docker required)
