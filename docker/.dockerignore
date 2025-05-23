@@ -1,38 +1,15 @@
+# Virtual environments
+.venv/
+
 # Python cache
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
+.pytest_cache/
 
 # Logs and junk
 *.log
 *.tmp
 *.swp
-*.csv
-*.json
-*.schema
-*.lock
 
-# Virtual environments
-.venv/
-
-# Cloud config and metadata
-.gcloudignore
-run.yaml
-
-# Project metadata not needed in image
+# Documentation
 README.md
-
-# Terraform code, state and configs
-terraform/
-
-# Local data input/output
-data/
-
-# Scripts and images
-scripts/
-images/
-makefile
-
-# Local config files
-.vscode/

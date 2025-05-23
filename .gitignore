@@ -3,71 +3,14 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Distribution / packaging
-*.egg-info/
-dist/
-build/
-eggs/
-parts/
-var/
-*.egg
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-
-# PyInstaller
-*.manifest
-*.spec
-
-# Env files
-.env
-venv/
-ENV/
-env/
+# Python virtual environments
 .venv/
-.ENV/
 
-
-# Local .terraform directories
+# Terraform
 .terraform/
-*/.terraform/
-
-# Terraform state files
-terraform.tfstate
-terraform.tfstate.backup
-*/terraform.tfstate
-*/terraform.tfstate.backup
-
-# Sensitive variable files
 *.tfvars
 
-# Crash logs
-crash.log
-
-# Override files (if used)
-override.tf
-override.tf.json
-*_override.tf
-*_override.tf.json
-
-# CLI configuration
-.terraform.rc
-terraform.rc
-
+# Data files
 data/**/*
 !data/input/
 !data/input/*.json

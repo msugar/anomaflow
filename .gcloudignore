@@ -1,0 +1,25 @@
+.git
+.gitignore
+
+#!include:.gitignore
+
+# IDE configuration
+.vscode/
+
+# Cloud config and metadata
+.gcloudignore
+cloud-build/
+
+# Documentation
+images/
+README.md
+
+# Local data input/output
+data/
+
+# Scripts
+scripts/
+makefile
+
+# Terraform code, state and configs
+terraform/

@@ -1,0 +1,36 @@
+# This Cloud Build config runs a Dataflow job using GPUs.
+# We use the same worker image to launch the job.
+# That way we guarantee the same Python version for the workers.
+# It also already has all the requirements installed.
+
+# -----------------------------------------------------------------------------
+# To learn more about this file:
+#   https://cloud.google.com/build/docs/build-config
+#
+# To learn more about Cloud Build variable substitutions:
+#   https://cloud.google.com/build/docs/configuring-builds/substitute-variable-values#using_user-defined_substitutions
+# -----------------------------------------------------------------------------
+
+substitutions:
+  _JOB_NAME: ''
+  _TEMP_LOCATION: ''
+  _REGION: us-central1
+  _IMAGE: samples/dataflow-slim:latest
+
+steps:
+- name: gcr.io/$PROJECT_ID/$_IMAGE
+  entrypoint: python
+  args:
+  - /pipeline/anomaflow/pipeline.py
+  - --runner=DataflowRunner
+  - --project=$PROJECT_ID
+  - --region=$_REGION
+  - --job_name=$_JOB_NAME
+  - --temp_location=$_TEMP_LOCATION
+  - --sdk_container_image=gcr.io/$PROJECT_ID/$_IMAGE
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+# Use the anomaly detection service account to launch the job.
+serviceAccount: projects/$PROJECT_ID/serviceAccounts/anomaly-detection-sa@$PROJECT_ID.iam.gserviceaccount.com
