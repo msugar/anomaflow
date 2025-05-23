@@ -9,6 +9,8 @@ __pycache__/
 # Terraform
 .terraform/
 *.tfvars
+*.tfstate
+*.tfstate.*
 
 # Data files
 data/**/*
@@ -18,3 +20,4 @@ data/**/*
 
 scripts/
 python/anomaflow/pipeline.py.old
+
