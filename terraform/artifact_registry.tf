@@ -14,7 +14,7 @@ resource "google_artifact_registry_repository" "dataflow_images" {
 }
 
 # Grant Dataflow service account permission to pull images
-resource "google_artifact_registry_repository_iam_member" "dataflow_pull" {
+resource "google_artifact_registry_repository_iam_member" "dataflow_sa_artifact_registry_reader" {
   project    = var.project_id
   location   = var.region
   repository = google_artifact_registry_repository.dataflow_images.name
@@ -23,7 +23,7 @@ resource "google_artifact_registry_repository_iam_member" "dataflow_pull" {
 }
 
 # Grant admin (user or CI) permission to push images
-resource "google_artifact_registry_repository_iam_member" "admin_writer" {
+resource "google_artifact_registry_repository_iam_member" "admin_user_artifact_registry_writer" {
   project    = var.project_id
   location   = var.region
   repository = google_artifact_registry_repository.dataflow_images.name

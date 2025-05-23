@@ -36,40 +36,43 @@ resource "google_service_account" "dataflow_service_account" {
   depends_on   = [google_project_service.required_services]
 }
 
-# Grant necessary roles to the service account
-resource "google_project_iam_member" "dataflow_worker_role" {
+resource "google_project_iam_member" "admin_user_cloud_build_editor" {
+  project = var.project_id
+  role    = "roles/cloudbuild.builds.editor"
+  member  = var.admin_user_member
+}
+
+resource "google_project_iam_member" "admin_user_dataflow_admin" {
+  project = var.project_id
+  role    = "roles/dataflow.admin"
+  member = var.admin_user_member
+}
+
+resource "google_project_iam_member" "dataflow_sa_dataflow_worker" {
   project = var.project_id
   role    = "roles/dataflow.worker"
   member  = google_service_account.dataflow_service_account.member
 }
 
-# Also ensure you have the Dataflow Admin role for job submission
-resource "google_project_iam_member" "dataflow_admin_role" {
-  project = var.project_id
-  role    = "roles/dataflow.admin"
-  #member  = google_service_account.dataflow_service_account.member
-  member = var.admin_user_member
-}
-
-resource "google_project_iam_member" "compute_admin_role" {
+resource "google_project_iam_member" "dataflow_sa_compute_admin" {
   project = var.project_id
   role    = "roles/compute.admin"
   member  = google_service_account.dataflow_service_account.member
 }
 
-resource "google_project_iam_member" "storage_admin_role" {
+resource "google_project_iam_member" "dataflow_sa_storage_admin" {
   project = var.project_id
   role    = "roles/storage.admin"
   member  = google_service_account.dataflow_service_account.member
 }
 
-resource "google_project_iam_member" "pubsub_subscriber_role" {
+resource "google_project_iam_member" "dataflow_sa_pubsub_subscriber" {
   project = var.project_id
   role    = "roles/pubsub.subscriber"
   member  = google_service_account.dataflow_service_account.member
 }
 
-resource "google_project_iam_member" "bigquery_data_editor_role" {
+resource "google_project_iam_member" "dataflow_sa_bigquery_data_editor" {
   project = var.project_id
   role    = "roles/bigquery.dataEditor"
   member  = google_service_account.dataflow_service_account.member
@@ -413,10 +416,10 @@ resource "google_dataflow_job" "anomaly_detection_job" {
     google_pubsub_topic.new_telemetry_topic,
     google_bigquery_table.metric_anomalies_table,
     google_service_account.dataflow_service_account,
-    google_project_iam_member.dataflow_worker_role,
-    google_project_iam_member.storage_admin_role,
-    google_project_iam_member.pubsub_subscriber_role,
-    google_project_iam_member.bigquery_data_editor_role
+    google_project_iam_member.dataflow_sa_dataflow_worker,
+    google_project_iam_member.dataflow_sa_storage_admin,
+    google_project_iam_member.dataflow_sa_pubsub_subscriber,
+    google_project_iam_member.dataflow_sa_bigquery_data_editor
   ]
 }
 
