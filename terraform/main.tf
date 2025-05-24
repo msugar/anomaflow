@@ -84,6 +84,12 @@ resource "google_project_iam_member" "dataflow_sa_bigquery_data_editor" {
   member  = google_service_account.dataflow_service_account.member
 }
 
+# resource "google_project_iam_member" "dataflow_sa_monitoring_metric_writer" {
+#   project = var.project_id
+#   role    = "roles/monitoring.metricWriter"
+#   member  = google_service_account.dataflow_service_account.member
+# }
+
 # Create a GCS bucket for OpenTelemetry data
 resource "google_storage_bucket" "telemetry_bucket" {
   name          = "${var.project_id}-telemetry"
