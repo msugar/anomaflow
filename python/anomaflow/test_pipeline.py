@@ -1,6 +1,7 @@
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
 import argparse
+import datetime
 
 def run_test_pipeline(argv=None):
     parser = argparse.ArgumentParser()
@@ -12,7 +13,7 @@ def run_test_pipeline(argv=None):
     with beam.Pipeline(options=pipeline_options) as p:
         (p 
          | 'Create' >> beam.Create(['Hello', 'World', 'Test'])
-         | 'Add timestamp' >> beam.Map(lambda x: f"{x} - test")
+         | 'Add timestamp' >> beam.Map(lambda x: f"{datetime.datetime.now(datetime.timezone.utc).isoformat()}: {x}")
          | 'Write' >> beam.io.WriteToText(known_args.output))
 
 if __name__ == '__main__':
