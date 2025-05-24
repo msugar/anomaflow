@@ -137,12 +137,14 @@ dataflow: load-terraform-outputs ## Run pipeline on Google Cloud Dataflow (batch
 		--region="$(REGION)" \
 		--network="$(NETWORK)" \
 		--subnetwork="regions/$(REGION)/subnetworks/$(SUBNET)" \
+		--network_tags="dataflow" \
+		--experiments=use_network_tags="dataflow" \
 		--service_account_email="$(SERVICE_ACCOUNT_EMAIL)" \
 		--temp_location="$(GCS_BUCKET_TEMP)/temp/" \
 		--staging_location="$(GCS_BUCKET_TEMP)/staging/" \
+		--experiments=use_runner_v2 \
 		--sdk_container_image="$(IMAGE_URI)" \
 		--no_use_public_ips \
-		--network_tags="dataflow" \
 		--input_path="$(GCS_BUCKET_INPUT)/input/year=2025/month=*/day=*/hour=*/minute=*/*.json" \
 		--output_path="$(GCS_BUCKET_OUTPUT)/output/" \
 		--window_size=$(WINDOW_SIZE) \
@@ -197,8 +199,14 @@ dataflow-test: load-terraform-outputs ## Run test pipeline on Google Cloud Dataf
 build-container: check-docker load-terraform-outputs ## Build Docker container image (requires Docker)
 	@echo "Building Docker image: $(IMAGE_URI)"
 	@[ -f "docker/Dockerfile" ] || (echo "Error: Dockerfile not found at docker/Dockerfile" && exit 1)
-	docker build --no-cache -f docker/Dockerfile -t $(IMAGE_URI) python
+	docker build -f docker/Dockerfile -t $(IMAGE_URI) python
 	@echo "Docker image built successfully"
+
+push-container: build-container ## Build and push Docker container to Artifact Registry (requires Docker)
+	@echo "Pushing Docker image to Artifact Registry..."
+	@gcloud auth configure-docker $(REGION)-docker.pkg.dev --quiet
+	docker push $(IMAGE_URI)
+	@echo "Image pushed successfully: $(IMAGE_URI)"
 
 build-container-cloud: load-terraform-outputs ## Build container using Google Cloud Build (no Docker required)
 	@echo "Building container using Cloud Build: $(IMAGE_URI)"
@@ -210,12 +218,6 @@ build-container-cloud: load-terraform-outputs ## Build container using Google Cl
 		--region=$(REGION) \
 		.
 	@echo "Container built and pushed successfully using Cloud Build"
-
-push-container: build-container ## Build and push Docker container to Artifact Registry (requires Docker)
-	@echo "Pushing Docker image to Artifact Registry..."
-	@gcloud auth configure-docker $(REGION)-docker.pkg.dev --quiet
-	docker push $(IMAGE_URI)
-	@echo "Image pushed successfully: $(IMAGE_URI)"
 
 iap-tunnel: load-terraform-outputs ## Create IAP tunnel to bindplane-server
 	@echo "Creating IAP tunnel to bindplane-server on localhost:3001..."
