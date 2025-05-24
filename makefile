@@ -6,8 +6,9 @@ SHELL := /bin/bash
 
 # Paths
 PYTHON_DIR := python
-MAIN_SCRIPT := $(PYTHON_DIR)/anomaflow/pipeline.py
-TEST_SCRIPT := $(PYTHON_DIR)/anomaflow/test_pipeline.py
+PIPELINE := $(PYTHON_DIR)/anomaflow/pipeline.py
+TEST_PIPELINE := $(PYTHON_DIR)/anomaflow/test_pipeline.py
+STREAM_PIPELINE := $(PYTHON_DIR)/anomaflow/stream_pipeline.py
 
 # Local paths
 LOCAL_INPUT_PATH := data/input
@@ -79,7 +80,7 @@ check-docker: ## Check if Docker is available
 
 validate-env: ## Validate environment and required files
 	@echo "Validating environment..."
-	@[ -f "$(MAIN_SCRIPT)" ] || (echo "Error: Main script not found: $(MAIN_SCRIPT)" && exit 1)
+	@[ -f "$(PIPELINE)" ] || (echo "Error: Main script not found: $(PIPELINE)" && exit 1)
 	@[ -d "$(LOCAL_INPUT_PATH)" ] || (echo "Error: Input directory not found: $(LOCAL_INPUT_PATH)" && exit 1)
 	@echo "Environment validation passed"
 
@@ -107,94 +108,97 @@ load-terraform-outputs:
 	$(eval NETWORK := $(shell echo '$(TF_OUTPUTS)' | jq -r '.dataflow_network.value'))
 	$(eval SUBNET := $(shell echo '$(TF_OUTPUTS)' | jq -r '.dataflow_subnet.value'))
 	$(eval SERVICE_ACCOUNT_EMAIL := $(shell echo '$(TF_OUTPUTS)' | jq -r '.dataflow_service_account_email.value'))
-	$(eval WORKER_ZONE_FLAG := --worker_zone="$(if $(ZONE_SUFFIX),$(REGION)-$(ZONE_SUFFIX),$(ZONE))")
+	$(eval WORKER_ZONE := "$(if $(ZONE_SUFFIX),$(REGION)-$(ZONE_SUFFIX),$(ZONE))")
 	@echo "Terraform outputs loaded successfully"
 
-local: validate-env cleanup ## Run pipeline locally with DirectRunner
+local: validate-env cleanup ## Run pipeline with DirectRunner using local directory
 	@echo "Running pipeline locally..."
-	python3 $(MAIN_SCRIPT) \
+	python3 $(PIPELINE) \
 		--runner=DirectRunner \
 		--input_path="$(LOCAL_INPUT_PATH)/*.json" \
 		--output_path="$(LOCAL_OUTPUT_PATH)/" \
 		--window_size=$(WINDOW_SIZE)
 	@echo "Local pipeline completed"
 
-remote: load-terraform-outputs ## Run pipeline locally with remote GCS data
+remote: load-terraform-outputs ## Run pipeline with DirectRunner using GCS
 	@echo "Running pipeline with remote data..."
-	python3 $(MAIN_SCRIPT) \
+	python3 $(PIPELINE) \
 		--runner=DirectRunner \
 		--input_path="$(GCS_BUCKET_INPUT)/input/year=2025/month=05/day=18/hour=04/minute=*/*.json" \
 		--output_path="$(GCS_BUCKET_OUTPUT)/output/" \
 		--window_size=$(WINDOW_SIZE)
 	@echo "Remote pipeline completed"
 
-dataflow: load-terraform-outputs ## Run pipeline on Google Cloud Dataflow (batch)
+dataflow: load-terraform-outputs ## Run pipeline with DataflowRunner (batch)
 	@echo "Starting Dataflow batch job..."
 	@echo "Image: $(IMAGE_URI)"
-	python3 $(MAIN_SCRIPT) \
+	python3 $(PIPELINE) \
 		--runner=DataflowRunner \
 		--project="$(PROJECT_ID)" \
 		--region="$(REGION)" \
 		--network="$(NETWORK)" \
 		--subnetwork="regions/$(REGION)/subnetworks/$(SUBNET)" \
-		--network_tags="dataflow" \
 		--experiments=use_network_tags="dataflow" \
+		--experiments=use_runner_v2 \
+		--no_use_public_ips \
+		--num_workers=1 \
+		--max_num_workers="$(MAX_WORKERS)" \
+		--worker_zone=$(WORKER_ZONE) \
+		--machine_type="$(WORKER_MACHINE_TYPE)" \
 		--service_account_email="$(SERVICE_ACCOUNT_EMAIL)" \
 		--temp_location="$(GCS_BUCKET_TEMP)/temp/" \
 		--staging_location="$(GCS_BUCKET_TEMP)/staging/" \
-		--experiments=use_runner_v2 \
 		--sdk_container_image="$(IMAGE_URI)" \
-		--no_use_public_ips \
 		--input_path="$(GCS_BUCKET_INPUT)/input/year=2025/month=*/day=*/hour=*/minute=*/*.json" \
 		--output_path="$(GCS_BUCKET_OUTPUT)/output/" \
-		--window_size=$(WINDOW_SIZE) \
-		--max_num_workers="$(MAX_WORKERS)" \
-		--num_workers=1 \
-		$(WORKER_ZONE_FLAG) \
-		--machine_type="$(WORKER_MACHINE_TYPE)"
-	@echo "Dataflow job submitted"
+		--window_size=$(WINDOW_SIZE)
+	@echo "Dataflow job completed"
 
-dataflow-stream: load-terraform-outputs ## Run streaming pipeline on Google Cloud Dataflow
-	@echo "Starting Dataflow streaming job..."
-	python3 $(MAIN_SCRIPT) \
+dataflow-test: load-terraform-outputs ## Run test pipeline with DataflowRunner (batch)
+	@echo "Running Dataflow test..."
+	python3 $(TEST_PIPELINE) \
 		--runner=DataflowRunner \
 		--project="$(PROJECT_ID)" \
 		--region="$(REGION)" \
 		--network="$(NETWORK)" \
 		--subnetwork="regions/$(REGION)/subnetworks/$(SUBNET)" \
+		--experiments=use_network_tags="dataflow" \
+		--experiments=use_runner_v2 \
+		--no_use_public_ips \
+		--num_workers=1 \
+		--max_num_workers="$(MAX_WORKERS)" \
+		--worker_zone=$(WORKER_ZONE) \
+		--machine_type="$(WORKER_MACHINE_TYPE)" \
+		--service_account_email="$(SERVICE_ACCOUNT_EMAIL)" \
+		--temp_location="$(GCS_BUCKET_TEMP)/temp/" \
+		--staging_location="$(GCS_BUCKET_TEMP)/staging/" \
+		--output="$(GCS_BUCKET_OUTPUT)/test-output"
+	@echo "Dataflow test job completed"
+
+dataflow-stream: load-terraform-outputs ## Run pipeline with DataflowRunner (streaming)
+	@echo "Starting Dataflow streaming job..."
+	python3 $(STREAM_PIPELINE) \
+		--runner=DataflowRunner \
+		--streaming \
+		--project="$(PROJECT_ID)" \
+		--region="$(REGION)" \
+		--network="$(NETWORK)" \
+		--subnetwork="regions/$(REGION)/subnetworks/$(SUBNET)" \
+		--experiments=use_network_tags="dataflow" \
+		--experiments=use_runner_v2 \
+		--no_use_public_ips \
+		--num_workers=1 \
+		--max_num_workers="$(MAX_WORKERS)" \
+		--worker_zone=$(WORKER_ZONE) \
+		--machine_type="$(WORKER_MACHINE_TYPE)" \
 		--service_account_email="$(SERVICE_ACCOUNT_EMAIL)" \
 		--temp_location="$(GCS_BUCKET_TEMP)/temp/" \
 		--staging_location="$(GCS_BUCKET_TEMP)/staging/" \
 		--sdk_container_image="$(IMAGE_URI)" \
-		--no_use_public_ips \
-		--input_path="$(GCS_BUCKET_INPUT)/input/year=2025/month=05/day=18/hour=*/minute=*/*.json" \
+		--input_path="$(GCS_BUCKET_INPUT)/input/year=2025/month=*/day=*/hour=*/minute=*/*.json" \
 		--output_path="$(GCS_BUCKET_OUTPUT)/output/" \
-		--window_size=$(WINDOW_SIZE) \
-		--streaming \
-		--max_num_workers="$(MAX_WORKERS)" \
-		--num_workers=1 \
-		$(WORKER_ZONE_FLAG) \
-		--machine_type="$(WORKER_MACHINE_TYPE)"
+		--window_size=$(WINDOW_SIZE)
 	@echo "Dataflow streaming job submitted"
-
-dataflow-test: load-terraform-outputs ## Run test pipeline on Google Cloud Dataflow
-	@echo "Running Dataflow test..."
-	python3 $(TEST_SCRIPT) \
-		--runner=DataflowRunner \
-		--project="$(PROJECT_ID)" \
-		--region="$(REGION)" \
-		--network="$(NETWORK)" \
-		--subnetwork="regions/$(REGION)/subnetworks/$(SUBNET)" \
-		--service_account_email="$(SERVICE_ACCOUNT_EMAIL)" \
-		--temp_location="$(GCS_BUCKET_TEMP)/temp/" \
-		--staging_location="$(GCS_BUCKET_TEMP)/staging/" \
-		--no_use_public_ips \
-		--output="$(GCS_BUCKET_OUTPUT)/test-output" \
-		--max_num_workers="$(MAX_WORKERS)" \
-		--num_workers=1 \
-		$(WORKER_ZONE_FLAG) \
-		--machine_type="$(WORKER_MACHINE_TYPE)"
-	@echo "Dataflow test completed"
 
 build-container: check-docker load-terraform-outputs ## Build Docker container image (requires Docker)
 	@echo "Building Docker image: $(IMAGE_URI)"
