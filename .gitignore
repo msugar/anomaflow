@@ -21,3 +21,4 @@ data/**/*
 scripts/
 python/anomaflow/pipeline.py.old
 
+.terraform-outputs.json
