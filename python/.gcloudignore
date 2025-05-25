@@ -1,0 +1,4 @@
+# Hint: To see what's effectively going to be uploaded:
+# gcloud meta list-files-for-upload
+
+#!include:.dockerignore

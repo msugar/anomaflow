@@ -13,3 +13,9 @@
 
 # Documentation
 README.md
+
+# Docker
+.dockerignore
+
+# Cloud Build
+.gcloudignore
