@@ -12,15 +12,15 @@ SHELL := /bin/bash
 
 PROJECT_ROOT := $(shell pwd)
 SRC_DIR := $(PROJECT_ROOT)/python
+REL_SRC_DIR = $(shell realpath --relative-to=$(PROJECT_ROOT) $(SRC_DIR))
 DOCKER_DIR := $(PROJECT_ROOT)/docker
 DATA_DIR := $(PROJECT_ROOT)/data
 TERRAFORM_DIR := $(PROJECT_ROOT)/terraform
 
 # Python
-VENV = $(SRC_DIR)/.venv
-PYTHON = $(VENV)/bin/python3
-REL_VENV = $(shell realpath --relative-to=$(PROJECT_ROOT) $(VENV))
-# $(shell basename $(SRC_DIR))/$(shell basename $(VENV))
+VENV_DIR = $(SRC_DIR)/.venv
+REL_VENV_DIR = $(shell realpath --relative-to=$(PROJECT_ROOT) $(VENV_DIR))
+PYTHON = $(VENV_DIR)/bin/python3
 
 # Pipelines
 PIPELINE := $(SRC_DIR)/anomaflow/pipeline.py
@@ -119,16 +119,16 @@ quickstart: ## Show quick start instructions
 # DEVELOPMENT
 # =============================================================================
 
-$(VENV)/bin/activate: $(SRC_DIR)/pyproject.toml
+$(VENV_DIR)/bin/activate: $(SRC_DIR)/pyproject.toml
 	uv sync --project $(SRC_DIR)
-	touch $(VENV)/bin/activate
+	touch $(VENV_DIR)/bin/activate
 
 uv-sync: check-tools ## Sync virtual environment
 	@echo "Syncing virtual environment..."
 	uv sync --project $(SRC_DIR)
-	touch $(VENV)/bin/activate
+	touch $(VENV_DIR)/bin/activate
 	@echo "Virtual environment synced."
-	@echo "Run 'source $(REL_VENV)/bin/activate' to activate the virtual environment."
+	@echo "Run 'source $(REL_VENV_DIR)/bin/activate' to activate the virtual environment."
 
 # =============================================================================
 # TERRAFORM OUTPUTS AND VARIABLE LOADING
@@ -240,7 +240,7 @@ tf-destroy: tf-init ## Destroy terraform resources (DESTRUCTIVE)
 # BUILD AND DEPLOY CONTAINERIZED IMAGE WITH PIPELINE CODE AND DEPENDENCIES
 # =============================================================================
 
-docker-build: check-docker $(VENV)/bin/activate load-vars ## Build image using Docker
+docker-build: check-docker $(VENV_DIR)/bin/activate load-vars ## Build image using Docker
 	@echo "Building Docker image: $(IMAGE_URI)"
 	@[ -f "docker/Dockerfile" ] || (echo "Error: Dockerfile not found in docker/ folder" && exit 1)
 	docker build -f docker/Dockerfile -t $(IMAGE_URI) $(SRC_DIR)
@@ -252,23 +252,23 @@ docker-push: docker-build ## Build and push image using Docker
 	docker push $(IMAGE_URI)
 	@echo "Docker image pushed successfully: $(IMAGE_URI)"
 
-deploy: check-tools $(VENV)/bin/activate check-gcloud-auth load-vars ## Build and push image using Google Cloud Build
+deploy: check-tools $(VENV_DIR)/bin/activate check-gcloud-auth load-vars ## Build and push image using Google Cloud Build
 	@echo "Building Docker image using Cloud Build: $(IMAGE_URI)"
 	@[ -f "docker/Dockerfile" ] || (echo "Error: Dockerfile not found in docker/ folder" && exit 1)
 	@[ -f "cloud-build/cloudbuild.yaml" ] || (echo "Error: cloudbuild.yaml not found in cloud-build/ folder" && exit 1)
 	gcloud builds submit \
 		--config=cloud-build/cloudbuild.yaml \
-		--substitutions=_IMAGE_URI=$(IMAGE_URI) \
+		--substitutions=_IMAGE_URI=$(IMAGE_URI),_SRC_DIR=$(REL_SRC_DIR) \
 		--project=$(PROJECT_ID) \
 		--region=$(REGION) \
-		$(SRC_DIR)
+		.
 	@echo "Docker image built and pushed successfully using Cloud Build"
 
 # =============================================================================
 # BEAM PIPELINE EXECUTION WITH DIRECT RUNNER
 # =============================================================================
 
-run: check-tools $(VENV)/bin/activate ## Run pipeline with DirectRunner and local data
+run: check-tools $(VENV_DIR)/bin/activate ## Run pipeline with DirectRunner and local data
 	@echo "Starting Direct batch run and local data..."
 	$(PYTHON) $(PIPELINE) \
 		--runner=DirectRunner \
@@ -277,7 +277,7 @@ run: check-tools $(VENV)/bin/activate ## Run pipeline with DirectRunner and loca
 		--window_size=$(WINDOW_SIZE)
 	@echo "Direct run complete"
 
-run-gcs: check-tools $(VENV)/bin/activate check-gcloud-auth load-vars ## Run pipeline with DirectRunner and data from GCS
+run-gcs: check-tools $(VENV_DIR)/bin/activate check-gcloud-auth load-vars ## Run pipeline with DirectRunner and data from GCS
 	@echo "Starting Direct batch run and data from GCS..."
 	$(PYTHON) $(PIPELINE) \
 		--runner=DirectRunner \
@@ -290,7 +290,7 @@ run-gcs: check-tools $(VENV)/bin/activate check-gcloud-auth load-vars ## Run pip
 # BEAM PIPELINE EXECUTION WITH DATAFLOW RUNNER
 # =============================================================================
 
-run-dataflow: check-tools $(VENV)/bin/activate check-gcloud-auth load-vars ## Run pipeline with DataflowRunner (batch)
+run-dataflow: check-tools $(VENV_DIR)/bin/activate check-gcloud-auth load-vars ## Run pipeline with DataflowRunner (batch)
 	@echo "Starting Dataflow batch job..."
 	@echo "Image: $(IMAGE_URI)"
 	$(PYTHON) $(PIPELINE) \
@@ -315,7 +315,7 @@ run-dataflow: check-tools $(VENV)/bin/activate check-gcloud-auth load-vars ## Ru
 		--window_size=$(WINDOW_SIZE)
 	@echo "Dataflow job complete"
 
-run-dataflow-test: check-tools $(VENV)/bin/activate check-gcloud-auth load-vars ## Run test pipeline with DataflowRunner (batch)
+run-dataflow-test: check-tools $(VENV_DIR)/bin/activate check-gcloud-auth load-vars ## Run test pipeline with DataflowRunner (batch)
 	@echo "Running Dataflow test batch job..."
 	$(PYTHON) $(TEST_PIPELINE) \
 		--runner=DataflowRunner \

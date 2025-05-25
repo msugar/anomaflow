@@ -20,14 +20,8 @@ README.md
 # Local data input/output
 data/
 
-# Docker
-docker/
-
 # Makefile
 makefile
-
-# uv
-uv.lock
 
 # Terraform code, state and configs
 terraform/
