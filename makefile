@@ -53,6 +53,9 @@ ZONE_SUFFIX ?=
 IMAGE_NAME := anomaflow
 IMAGE_TAG ?= latest
 
+# Pattern for input files for previous hour in UTC (single date call for consistency)
+INPUT_PATTERN ?= $(shell date -u --date='1 hour ago' +"year=%Y/month=%m/day=%d/hour=%H/minute=*/*.json")
+
 # Runtime variables (loaded from Terraform outputs)
 PROJECT_ID :=
 REGION :=
@@ -70,9 +73,6 @@ GCS_BUCKET_INPUT = gs://$(TELEMETRY_BUCKET)
 GCS_BUCKET_OUTPUT = gs://$(TELEMETRY_BUCKET)
 GCS_BUCKET_TEMP = gs://$(TEMP_BUCKET)
 WORKER_ZONE = "$(if $(ZONE_SUFFIX),$(REGION)-$(ZONE_SUFFIX),$(ZONE))"
-
-# Pattern for input files for previous hour in UTC (single date call for consistency)
-INPUT_PATTERN_PREV := $(shell date -u --date='1 hour ago' +"year=%Y/month=%m/day=%d/hour=%H/minute=*/*.json")
 
 # =============================================================================
 # PHONY TARGETS
@@ -108,7 +108,7 @@ help: ## Show this help message
 	@echo "Examples:"
 	@echo "  make run WINDOW_SIZE=1800"
 	@echo "  make deploy IMAGE_TAG=v1.2.3"
-	@echo "  make run-dataflow IMAGE_TAG=v1.2.3 MAX_WORKERS=8"
+	@echo "  make run-dataflow IMAGE_TAG=v1.2.3 MAX_WORKERS=8 INPUT_PATTERN='year=2025/month=05/day=18/hour=*/minute=*/*.json'"
 
 quickstart: ## Show quick start instructions
 	@echo "Anomaflow Quick Start Instructions:"
@@ -281,7 +281,7 @@ run-gcs: check-tools $(VENV_DIR)/bin/activate check-gcloud-auth load-vars ## Run
 	@echo "Starting Direct batch run and data from GCS..."
 	$(PYTHON) $(PIPELINE) \
 		--runner=DirectRunner \
-		--input_path="$(GCS_BUCKET_INPUT)/input/$(INPUT_PATTERN_PREV)" \
+		--input_path="$(GCS_BUCKET_INPUT)/input/$(INPUT_PATTERN)" \
 		--output_path="$(GCS_BUCKET_OUTPUT)/output/" \
 		--window_size=$(WINDOW_SIZE)
 	@echo "Direct run complete"
@@ -310,7 +310,7 @@ run-dataflow: check-tools $(VENV_DIR)/bin/activate check-gcloud-auth load-vars #
 		--temp_location="$(GCS_BUCKET_TEMP)/temp/" \
 		--staging_location="$(GCS_BUCKET_TEMP)/staging/" \
 		--sdk_container_image="$(IMAGE_URI)" \
-		--input_path="$(GCS_BUCKET_INPUT)/input/$(INPUT_PATTERN_PREV)" \
+		--input_path="$(GCS_BUCKET_INPUT)/input/$(INPUT_PATTERN)" \
 		--output_path="$(GCS_BUCKET_OUTPUT)/output/" \
 		--window_size=$(WINDOW_SIZE)
 	@echo "Dataflow job complete"
