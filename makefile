@@ -99,22 +99,36 @@ help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*##"; printf ""} /^[a-zA-Z_-]+:.*?##/ { printf "  %-25s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "Configuration Variables:"
-	@echo "  WINDOW_SIZE=$(WINDOW_SIZE) 			Window size in seconds"
-	@echo "  IMAGE_TAG=$(IMAGE_TAG) 			Docker image tag"
-	@echo "  MAX_WORKERS=$(MAX_WORKERS) 			Maximum Dataflow workers"
-	@echo "  WORKER_MACHINE_TYPE=$(WORKER_MACHINE_TYPE)		GCE machine type for workers"
-	@echo "  ZONE_SUFFIX=b 			Zone suffix override for worker placement"
+	@echo "  WINDOW_SIZE=$(WINDOW_SIZE)			Window size in seconds"
+	@echo "  IMAGE_TAG=$(IMAGE_TAG)			Docker image tag"
+	@echo "  MAX_WORKERS=$(MAX_WORKERS)				Maximum Dataflow workers"
+	@echo "  WORKER_MACHINE_TYPE=$(WORKER_MACHINE_TYPE) 	GCE machine type for workers"
+	@echo "  ZONE_SUFFIX=b 			Zone suffix for worker placement"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make run WINDOW_SIZE=1800"
 	@echo "  make deploy IMAGE_TAG=v1.2.3"
 	@echo "  make run-dataflow IMAGE_TAG=v1.2.3 MAX_WORKERS=8"
-	@echo ""
 
 quickstart: ## Show quick start instructions
 	@echo "Anomaflow Quick Start Instructions:"
 	@echo "make run    	Run pipeline with DirectRunner and local data"
 	@echo ""
+
+# =============================================================================
+# DEVELOPMENT
+# =============================================================================
+
+$(VENV)/bin/activate: $(SRC_DIR)/pyproject.toml
+	uv sync --project $(SRC_DIR)
+	touch $(VENV)/bin/activate
+
+uv-sync: check-tools ## Sync virtual environment
+	@echo "Syncing virtual environment..."
+	uv sync --project $(SRC_DIR)
+	touch $(VENV)/bin/activate
+	@echo "Virtual environment synced."
+	@echo "Run 'source $(REL_VENV)/bin/activate' to activate the virtual environment."
 
 # =============================================================================
 # TERRAFORM OUTPUTS AND VARIABLE LOADING
@@ -127,7 +141,7 @@ $(TF_OUTPUTS_FILE): $(TERRAFORM_DIR)/*.tf
 		rm -f $@; exit 1; \
 	fi
 
-load-vars: $(TF_OUTPUTS_FILE) ## Load variables from Terraform outputs
+load-vars: $(TF_OUTPUTS_FILE) # Load variables from Terraform outputs
 	$(eval PROJECT_ID := $(shell jq -r '.project_id.value' $(TF_OUTPUTS_FILE)))
 	$(eval REGION := $(shell jq -r '.region.value' $(TF_OUTPUTS_FILE)))
 	$(eval ZONE := $(shell jq -r '.zone.value' $(TF_OUTPUTS_FILE)))
@@ -138,111 +152,10 @@ load-vars: $(TF_OUTPUTS_FILE) ## Load variables from Terraform outputs
 	$(eval SERVICE_ACCOUNT_EMAIL := $(shell jq -r '.dataflow_service_account_email.value' $(TF_OUTPUTS_FILE)))
 	@echo "Variables loaded (Project: $(PROJECT_ID), Region: $(REGION))"
 
-clean-cache: ## Clean cached Terraform outputs
+clean-cache: # Clean Terraform outputs cache
 	@echo "Cleaning Terraform outputs cache..."
 	@rm -f $(TF_OUTPUTS_FILE)
 	@echo "Terraform outputs cache cleaned"
-
-# =============================================================================
-# BEAM PIPELINE EXECUTION WITH DIRECT RUNNER
-# =============================================================================
-
-run: check-tools $(VENV)/bin/activate ## Run pipeline with DirectRunner and local data
-	@echo "Starting Direct batch run and local data..."
-	$(PYTHON) $(PIPELINE) \
-		--runner=DirectRunner \
-		--input_path="$(LOCAL_INPUT_PATH)/*.json" \
-		--output_path="$(LOCAL_OUTPUT_PATH)/" \
-		--window_size=$(WINDOW_SIZE)
-	@echo "Direct run complete"
-
-run-gcs: check-tools $(VENV)/bin/activate check-gcloud-auth load-vars ## Run pipeline with DirectRunner and data from GCS
-	@echo "Starting Direct batch run and data from GCS..."
-	$(PYTHON) $(PIPELINE) \
-		--runner=DirectRunner \
-		--input_path="$(GCS_BUCKET_INPUT)/input/$(INPUT_PATTERN_PREV)" \
-		--output_path="$(GCS_BUCKET_OUTPUT)/output/" \
-		--window_size=$(WINDOW_SIZE)
-	@echo "Direct run complete"
-
-# =============================================================================
-# BEAM PIPELINE EXECUTION WITH DATAFLOW RUNNER
-# =============================================================================
-
-run-dataflow: check-tools $(VENV)/bin/activate check-gcloud-auth load-vars ## Run pipeline with DataflowRunner (batch)
-	@echo "Starting Dataflow batch job..."
-	@echo "Image: $(IMAGE_URI)"
-	$(PYTHON) $(PIPELINE) \
-		--runner=DataflowRunner \
-		--project="$(PROJECT_ID)" \
-		--region="$(REGION)" \
-		--network="$(NETWORK)" \
-		--subnetwork="regions/$(REGION)/subnetworks/$(SUBNET)" \
-		--experiments=use_network_tags="dataflow" \
-		--experiments=use_runner_v2 \
-		--no_use_public_ips \
-		--num_workers=1 \
-		--max_num_workers="$(MAX_WORKERS)" \
-		--worker_zone=$(WORKER_ZONE) \
-		--machine_type="$(WORKER_MACHINE_TYPE)" \
-		--service_account_email="$(SERVICE_ACCOUNT_EMAIL)" \
-		--temp_location="$(GCS_BUCKET_TEMP)/temp/" \
-		--staging_location="$(GCS_BUCKET_TEMP)/staging/" \
-		--sdk_container_image="$(IMAGE_URI)" \
-		--input_path="$(GCS_BUCKET_INPUT)/input/$(INPUT_PATTERN_PREV)" \
-		--output_path="$(GCS_BUCKET_OUTPUT)/output/" \
-		--window_size=$(WINDOW_SIZE)
-	@echo "Dataflow job complete"
-
-run-dataflow-test: check-tools $(VENV)/bin/activate check-gcloud-auth load-vars ## Run test pipeline with DataflowRunner (batch)
-	@echo "Running Dataflow test batch job..."
-	$(PYTHON) $(TEST_PIPELINE) \
-		--runner=DataflowRunner \
-		--project="$(PROJECT_ID)" \
-		--region="$(REGION)" \
-		--network="$(NETWORK)" \
-		--subnetwork="regions/$(REGION)/subnetworks/$(SUBNET)" \
-		--experiments=use_network_tags="dataflow" \
-		--experiments=use_runner_v2 \
-		--experiments=disable_metric_annotations \
-		--no_use_public_ips \
-		--num_workers=1 \
-		--max_num_workers="$(MAX_WORKERS)" \
-		--worker_zone=$(WORKER_ZONE) \
-		--machine_type="$(WORKER_MACHINE_TYPE)" \
-		--service_account_email="$(SERVICE_ACCOUNT_EMAIL)" \
-		--temp_location="$(GCS_BUCKET_TEMP)/temp/" \
-		--staging_location="$(GCS_BUCKET_TEMP)/staging/" \
-		--output="$(GCS_BUCKET_OUTPUT)/test-output"
-	@echo "Dataflow test job complete"
-
-# =============================================================================
-# BUILD AND DEPLOY CONTAINERIZED IMAGE WITH PIPELINE CODE AND DEPENDENCIES
-# =============================================================================
-
-docker-build: check-docker $(VENV)/bin/activate load-vars ## Build image using Docker
-	@echo "Building Docker image: $(IMAGE_URI)"
-	@[ -f "docker/Dockerfile" ] || (echo "Error: Dockerfile not found in docker/ folder" && exit 1)
-	docker build -f docker/Dockerfile -t $(IMAGE_URI) $(SRC_DIR)
-	@echo "Docker image built successfully"
-
-docker-push: docker-build ## Build and push image using Docker
-	@echo "Pushing Docker image to Artifact Registry..."
-	@gcloud auth configure-docker $(REGION)-docker.pkg.dev --quiet
-	docker push $(IMAGE_URI)
-	@echo "Docker image pushed successfully: $(IMAGE_URI)"
-
-deploy: check-tools $(VENV)/bin/activate check-gcloud-auth load-vars ## Build and push image using Google Cloud Build
-	@echo "Building Docker image using Cloud Build: $(IMAGE_URI)"
-	@[ -f "docker/Dockerfile" ] || (echo "Error: Dockerfile not found in docker/ folder" && exit 1)
-	@[ -f "cloud-build/cloudbuild.yaml" ] || (echo "Error: cloudbuild.yaml not found in cloud-build/ folder" && exit 1)
-	gcloud builds submit \
-		--config=cloud-build/cloudbuild.yaml \
-		--substitutions=_IMAGE_URI=$(IMAGE_URI) \
-		--project=$(PROJECT_ID) \
-		--region=$(REGION) \
-		$(SRC_DIR)
-	@echo "Docker image built and pushed successfully using Cloud Build"
 
 # =============================================================================
 # TERRAFORM
@@ -324,19 +237,105 @@ tf-destroy: tf-init ## Destroy terraform resources (DESTRUCTIVE)
 	fi
 
 # =============================================================================
-# DEVELOPMENT
+# BUILD AND DEPLOY CONTAINERIZED IMAGE WITH PIPELINE CODE AND DEPENDENCIES
 # =============================================================================
 
-$(VENV)/bin/activate: $(SRC_DIR)/pyproject.toml
-	uv sync --project $(SRC_DIR)
-	touch $(VENV)/bin/activate
+docker-build: check-docker $(VENV)/bin/activate load-vars ## Build image using Docker
+	@echo "Building Docker image: $(IMAGE_URI)"
+	@[ -f "docker/Dockerfile" ] || (echo "Error: Dockerfile not found in docker/ folder" && exit 1)
+	docker build -f docker/Dockerfile -t $(IMAGE_URI) $(SRC_DIR)
+	@echo "Docker image built successfully"
 
-uv-sync: check-tools ## Sync virtual environment
-	@echo "Syncing virtual environment..."
-	uv sync --project $(SRC_DIR)
-	touch $(VENV)/bin/activate
-	@echo "Virtual environment synced."
-	@echo "Run 'source $(REL_VENV)/bin/activate' to activate the virtual environment."
+docker-push: docker-build ## Build and push image using Docker
+	@echo "Pushing Docker image to Artifact Registry..."
+	@gcloud auth configure-docker $(REGION)-docker.pkg.dev --quiet
+	docker push $(IMAGE_URI)
+	@echo "Docker image pushed successfully: $(IMAGE_URI)"
+
+deploy: check-tools $(VENV)/bin/activate check-gcloud-auth load-vars ## Build and push image using Google Cloud Build
+	@echo "Building Docker image using Cloud Build: $(IMAGE_URI)"
+	@[ -f "docker/Dockerfile" ] || (echo "Error: Dockerfile not found in docker/ folder" && exit 1)
+	@[ -f "cloud-build/cloudbuild.yaml" ] || (echo "Error: cloudbuild.yaml not found in cloud-build/ folder" && exit 1)
+	gcloud builds submit \
+		--config=cloud-build/cloudbuild.yaml \
+		--substitutions=_IMAGE_URI=$(IMAGE_URI) \
+		--project=$(PROJECT_ID) \
+		--region=$(REGION) \
+		$(SRC_DIR)
+	@echo "Docker image built and pushed successfully using Cloud Build"
+
+# =============================================================================
+# BEAM PIPELINE EXECUTION WITH DIRECT RUNNER
+# =============================================================================
+
+run: check-tools $(VENV)/bin/activate ## Run pipeline with DirectRunner and local data
+	@echo "Starting Direct batch run and local data..."
+	$(PYTHON) $(PIPELINE) \
+		--runner=DirectRunner \
+		--input_path="$(LOCAL_INPUT_PATH)/*.json" \
+		--output_path="$(LOCAL_OUTPUT_PATH)/" \
+		--window_size=$(WINDOW_SIZE)
+	@echo "Direct run complete"
+
+run-gcs: check-tools $(VENV)/bin/activate check-gcloud-auth load-vars ## Run pipeline with DirectRunner and data from GCS
+	@echo "Starting Direct batch run and data from GCS..."
+	$(PYTHON) $(PIPELINE) \
+		--runner=DirectRunner \
+		--input_path="$(GCS_BUCKET_INPUT)/input/$(INPUT_PATTERN_PREV)" \
+		--output_path="$(GCS_BUCKET_OUTPUT)/output/" \
+		--window_size=$(WINDOW_SIZE)
+	@echo "Direct run complete"
+
+# =============================================================================
+# BEAM PIPELINE EXECUTION WITH DATAFLOW RUNNER
+# =============================================================================
+
+run-dataflow: check-tools $(VENV)/bin/activate check-gcloud-auth load-vars ## Run pipeline with DataflowRunner (batch)
+	@echo "Starting Dataflow batch job..."
+	@echo "Image: $(IMAGE_URI)"
+	$(PYTHON) $(PIPELINE) \
+		--runner=DataflowRunner \
+		--project="$(PROJECT_ID)" \
+		--region="$(REGION)" \
+		--network="$(NETWORK)" \
+		--subnetwork="regions/$(REGION)/subnetworks/$(SUBNET)" \
+		--experiments=use_network_tags="dataflow" \
+		--experiments=use_runner_v2 \
+		--no_use_public_ips \
+		--num_workers=1 \
+		--max_num_workers="$(MAX_WORKERS)" \
+		--worker_zone=$(WORKER_ZONE) \
+		--machine_type="$(WORKER_MACHINE_TYPE)" \
+		--service_account_email="$(SERVICE_ACCOUNT_EMAIL)" \
+		--temp_location="$(GCS_BUCKET_TEMP)/temp/" \
+		--staging_location="$(GCS_BUCKET_TEMP)/staging/" \
+		--sdk_container_image="$(IMAGE_URI)" \
+		--input_path="$(GCS_BUCKET_INPUT)/input/$(INPUT_PATTERN_PREV)" \
+		--output_path="$(GCS_BUCKET_OUTPUT)/output/" \
+		--window_size=$(WINDOW_SIZE)
+	@echo "Dataflow job complete"
+
+run-dataflow-test: check-tools $(VENV)/bin/activate check-gcloud-auth load-vars ## Run test pipeline with DataflowRunner (batch)
+	@echo "Running Dataflow test batch job..."
+	$(PYTHON) $(TEST_PIPELINE) \
+		--runner=DataflowRunner \
+		--project="$(PROJECT_ID)" \
+		--region="$(REGION)" \
+		--network="$(NETWORK)" \
+		--subnetwork="regions/$(REGION)/subnetworks/$(SUBNET)" \
+		--experiments=use_network_tags="dataflow" \
+		--experiments=use_runner_v2 \
+		--experiments=disable_metric_annotations \
+		--no_use_public_ips \
+		--num_workers=1 \
+		--max_num_workers="$(MAX_WORKERS)" \
+		--worker_zone=$(WORKER_ZONE) \
+		--machine_type="$(WORKER_MACHINE_TYPE)" \
+		--service_account_email="$(SERVICE_ACCOUNT_EMAIL)" \
+		--temp_location="$(GCS_BUCKET_TEMP)/temp/" \
+		--staging_location="$(GCS_BUCKET_TEMP)/staging/" \
+		--output="$(GCS_BUCKET_OUTPUT)/test-output"
+	@echo "Dataflow test job complete"
 
 # =============================================================================
 # MONITORING AND OPERATIONS
@@ -364,7 +363,7 @@ iap-tunnel: load-vars ## Create IAP tunnel to bindplane-server
 # VALIDATION CHECKS
 # =============================================================================
 
-check-tools: ## Check required tools are installed
+check-tools: # Check required tools are installed
 	@echo "Checking required tools are installed..."
 	@command -v python3 >/dev/null || (echo "Error: python3 not found" && exit 1)
 	@command -v uv >/dev/null || (echo "Error: uv not found" && exit 1)
@@ -373,11 +372,11 @@ check-tools: ## Check required tools are installed
 	@command -v jq >/dev/null || (echo "Error: jq not found" && exit 1)
 	@echo "Required tools found"
 
-check-docker: ## Check if Docker is available
+check-docker: # Check if Docker is available
 	@command -v docker >/dev/null || (echo "Warning: Docker not found - use 'make deploy' instead" && exit 1)
 	@echo "Docker found"
 
-check-gcloud-auth: ## Check gcloud authentication
+check-gcloud-auth: # Check gcloud authentication
 	@echo "Checking gcloud authentication..."
 	@gcloud auth list --filter=status:ACTIVE --format="value(account)" | grep -q . || \
 		(echo "Error: No active gcloud authentication. Run 'gcloud auth login'" && exit 1)
