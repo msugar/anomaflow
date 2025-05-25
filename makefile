@@ -225,7 +225,7 @@ tf-apply: tf-init clean-cache ## Apply terraform changes
 	@echo "Applying Terraform changes..."
 	@cd $(TERRAFORM_DIR) && terraform apply -var-file=terraform.tfvars
 
-tf-destroy: tf-init ## Destroy terraform resources (DESTRUCTIVE)
+tf-destroy: tf-init clean-cache ## Destroy terraform resources (DESTRUCTIVE)
 	@echo "This will destroy all Terraform-managed resources."
 	@echo "This operation cannot be undone and may result in data loss."
 	@read -p "Are you sure you want to destroy all resources? [y/N] " -n 1 -r; \
