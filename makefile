@@ -128,7 +128,7 @@ uv-sync: check-tools ## Sync virtual environment
 	uv sync --project $(SRC_DIR)
 	touch $(VENV_DIR)/bin/activate
 	@echo "Virtual environment synced."
-	@echo "Run 'source $(REL_VENV_DIR)/bin/activate' to activate the virtual environment."
+	@echo "Activate with: source $(REL_VENV_DIR)/bin/activate"
 
 # =============================================================================
 # TERRAFORM OUTPUTS AND VARIABLE LOADING

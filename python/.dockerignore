@@ -1,4 +1,4 @@
-# Virtual environments
+# Virtual environment
 .venv/
 
 # Python cache
@@ -19,3 +19,7 @@ README.md
 
 # Cloud Build
 .gcloudignore
+
+# Python project
+uv.lock
+pyproject.toml

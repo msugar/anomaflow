@@ -1,0 +1,2 @@
+apache-beam[gcp]==2.65.0
+pip==25.1.1
